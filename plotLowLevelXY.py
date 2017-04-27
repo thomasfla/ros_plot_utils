@@ -13,10 +13,10 @@ if ROS_MASTER_URI != None :
   set_ros_master_uri(uri=ROS_MASTER_URI)
 rospy.init_node('listener', anonymous=True)  
 rosData = RosTopic2Vector()
-rosData.addSubscriber('jointsVelocities','dq',N_PTS)
-rosData.addSubscriber('jointsTorques','tau',N_PTS)
-rosData.addSubscriber('currentFiltered','i',N_PTS)
-rosData.addSubscriber('i_des','id',N_PTS)
+rosData.addSubscriber(TOPIC_NAME_dq ,'dq' , N_PTS)
+rosData.addSubscriber(TOPIC_NAME_tau,'tau', N_PTS)
+rosData.addSubscriber(TOPIC_NAME_i  ,'i'  , N_PTS)
+rosData.addSubscriber(TOPIC_NAME_id ,'id' , N_PTS)
 
 win = pg.GraphicsWindow(title="Motor models")
 #~ win.resize(1000,600)
@@ -47,7 +47,7 @@ def redraw_model():
   pIV.clear()
   pIV.setTitle("I-dq "+IdTolongName[jID])
   pIV.showGrid(x=True, y=True)
-  pIV.setLabel('left', "Current", units='A')
+  pIV.setLabel('left', "Current - Kt.Tau", units='A')
   pIV.setLabel('bottom', "Velocity", units='rad/s')
   pIV.plot([0.0,maxdq],[ Kf_p[jID],Kv_p[jID]*maxdq+Kf_p[jID]],pen=pg.mkPen('w', width=3))#,'g:',lw=5)
   pIV.plot([0.0,mindq],[-Kf_n[jID],Kv_n[jID]*mindq-Kf_n[jID]],pen=pg.mkPen('w', width=3))#,'g:',lw=5)
@@ -61,8 +61,9 @@ def redraw_model():
   pIId.showGrid(x=True, y=True)
   pIId.setLabel('left', "Current", units='A')
   pIId.setLabel('bottom', "Control Current", units='A')
-  pIId.plot([-5.0,5.0],[-5.0,5.0],pen=pg.mkPen('w', width=3))#,'g:',lw=5)
-  #~ pIId.plot([0.0,mindq],[-Kf_n[jID],Kv_n[jID]*mindq-Kf_n[jID]],pen=pg.mkPen('w', width=3))#,'g:',lw=5)
+  pIId.plot([mini,maxi],[mini,maxi],pen=pg.mkPen('w', width=1))#,'g:',lw=5)
+  DZ=0.5
+  pIId.plot([mini-DZ,-DZ,DZ,maxi+DZ],[mini,0,0,maxi],pen=pg.mkPen('w', width=3))#,'g:',lw=5)
   curveIId = pIId.plot(pen='y')
   pointIId = pIId.plot([0],[0], pen=(200,200,200), symbolBrush=(255,0,0), symbolPen='w')
   pIId.enableAutoRange('xy', False) 
@@ -87,9 +88,10 @@ def update():
     global curveIV, pointIV
     try:
       y=rosData.i_history[:,jID].T
+      y2=rosData.tau_history[:,jID].T
       x=rosData.dq_history[:,jID].T
-      minlen = min(len(x),len(y))
-      curveIV.setData(x[0:minlen] ,y[0:minlen])
+      minlen = min(len(x),len(y),len(y2))
+      curveIV.setData(x[0:minlen] ,y[0:minlen] - Kt_p[jID] * y2[0:minlen])
       pointIV.setData([x[0]],[y[0]])
     except(TypeError):
       pass
@@ -104,7 +106,6 @@ def update():
       pointIId.setData([x[0]],[y[0]])
     except(TypeError):
       pass
-      
       
 timer = QtCore.QTimer()
 timer.timeout.connect(update)
@@ -127,5 +128,4 @@ if __name__ == '__main__':
     import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
-
         embed()
